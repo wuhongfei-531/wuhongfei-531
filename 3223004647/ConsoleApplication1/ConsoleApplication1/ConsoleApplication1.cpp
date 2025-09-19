@@ -70,6 +70,23 @@ char* read_file(const char* file_path) {
 	return content;
 }
 
+// 写入结果到文件（使用fopen_s）
+int write_result(const char* file_path, double similarity) {
+	FILE* file;
+	errno_t err;
+
+	// 使用fopen_s打开文件
+	if ((err = fopen_s(&file, file_path, "w")) != 0) {
+		fprintf(stderr, "无法打开输出文件: %s (错误码: %d)\n", file_path, err);
+		return 0;
+	}
+
+	// 保留两位小数写入
+	fprintf(file, "%.2f", similarity);
+	fclose(file);
+	return 1;
+}
+
 int main()
 {
 	return 0;
