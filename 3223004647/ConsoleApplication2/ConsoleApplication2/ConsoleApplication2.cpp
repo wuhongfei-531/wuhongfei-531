@@ -88,6 +88,43 @@ int write_result(const char* file_path, double similarity) {
 }
 
 
-int main() {
+// main函数单独保留在源文件中（也可根据需要移到单独的main.c）
+int main(int argc, char* argv[]) {
+	// 检查命令行参数
+	if (argc != 4) {
+		fprintf(stderr, "用法: %s 原文文件路径 抄袭文件路径 结果输出路径\n", argv[0]);
+		return 1;
+	}
+
+	// 读取文件内容
+	char* original_text = read_file(argv[1]);
+	if (original_text == NULL) return 1;
+
+	char* plagiarized_text = read_file(argv[2]);
+	if (plagiarized_text == NULL) {
+		free(original_text);
+		return 1;
+	}
+
+	// 计算相似度
+	int original_len = strlen(original_text);
+	int lcs_len = lcs_length(original_text, plagiarized_text);
+	double similarity = (original_len > 0) ? (double)lcs_len / original_len : 0.0;
+
+	// 输出结果
+	if (write_result(argv[3], similarity)) {
+		printf("查重完成，相似度: %.2f%%\n", similarity * 100);
+		printf("结果已保存至: %s\n", argv[3]);
+	}
+	else {
+		free(original_text);
+		free(plagiarized_text);
+		return 1;
+	}
+
+	// 释放内存
+	free(original_text);
+	free(plagiarized_text);
+
 	return 0;
 }
