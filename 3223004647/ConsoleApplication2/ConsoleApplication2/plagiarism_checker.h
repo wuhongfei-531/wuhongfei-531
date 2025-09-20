@@ -1,16 +1,15 @@
-
 #ifndef PLAGIARISM_CHECKER_H
 #define PLAGIARISM_CHECKER_H
 
-#include <stdio.h>  // 包含FILE等类型定义
+#include <wchar.h>
 
-// 计算最长公共子序列长度
-int lcs_length(const char* str1, const char* str2);
+// 计算最长公共子序列长度（宽字符版）
+int lcs_length(const wchar_t* str1, const wchar_t* str2);
 
-// 读取文件内容到字符串（使用fopen_s）
-char* read_file(const char* file_path);
+// 读取UTF-8编码的文件内容到宽字符串
+wchar_t* read_utf8_file(const char* file_path);
 
-// 写入结果到文件（使用fopen_s）
+// 写入结果到文件
 int write_result(const char* file_path, double similarity);
 
-#endif  // PLAGIARISM_CHECKER_H
+#endif // PLAGIARISM_CHECKER_H

@@ -1,13 +1,18 @@
-﻿#include "plagiarism_checker.h"  // 引用自定义头文件
+﻿#include "plagiarism_checker.h"
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <wchar.h>
+#include <locale.h>
+#include <fcntl.h>
+#include <io.h>
+#include <windows.h>
 
-// 计算最长公共子序列长度
-int lcs_length(const char* str1, const char* str2) {
-	int m = strlen(str1);
-	int n = strlen(str2);
+// 计算最长公共子序列长度（宽字符版）
+int lcs_length(const wchar_t* str1, const wchar_t* str2) {
+	int m = wcslen(str1);
+	int n = wcslen(str2);
 
 	// 创建动态规划表
 	int** dp = (int**)malloc((m + 1) * sizeof(int*));
@@ -38,14 +43,13 @@ int lcs_length(const char* str1, const char* str2) {
 	return result;
 }
 
-
-// 读取文件内容到字符串（使用fopen_s）
-char* read_file(const char* file_path) {
+// 读取UTF-8编码的文件内容到宽字符串
+wchar_t* read_utf8_file(const char* file_path) {
 	FILE* file;
 	errno_t err;
 
-	// 使用fopen_s打开文件，返回错误码
-	if ((err = fopen_s(&file, file_path, "r")) != 0) {
+	// 使用fopen_s打开文件
+	if ((err = fopen_s(&file, file_path, "rb")) != 0) {
 		fprintf(stderr, "无法打开文件: %s (错误码: %d)\n", file_path, err);
 		return NULL;
 	}
@@ -55,24 +59,41 @@ char* read_file(const char* file_path) {
 	long file_size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	// 分配内存（+1用于存储字符串结束符）
-	char* content = (char*)malloc(file_size + 1);
-	if (content == NULL) {
+	// 读取文件内容到字节缓冲区
+	char* buffer = (char*)malloc(file_size + 1);
+	if (buffer == NULL) {
 		fprintf(stderr, "内存分配失败\n");
 		fclose(file);
 		return NULL;
 	}
 
-	// 读取文件内容
-	size_t read_size = fread(content, 1, file_size, file);
-	content[read_size] = '\0';  // 添加字符串结束符
-
+	size_t read_size = fread(buffer, 1, file_size, file);
+	buffer[read_size] = '\0';
 	fclose(file);
-	return content;
+
+	// 计算需要的宽字符数
+	int wchar_count = MultiByteToWideChar(CP_UTF8, 0, buffer, -1, NULL, 0);
+	if (wchar_count == 0) {
+		fprintf(stderr, "转换为宽字符失败\n");
+		free(buffer);
+		return NULL;
+	}
+
+	// 分配宽字符内存并转换
+	wchar_t* wstr = (wchar_t*)malloc(wchar_count * sizeof(wchar_t));
+	if (wstr == NULL) {
+		fprintf(stderr, "宽字符内存分配失败\n");
+		free(buffer);
+		return NULL;
+	}
+
+	MultiByteToWideChar(CP_UTF8, 0, buffer, -1, wstr, wchar_count);
+	free(buffer);
+
+	return wstr;
 }
 
-
-// 写入结果到文件（使用fopen_s）
+// 写入结果到文件
 int write_result(const char* file_path, double similarity) {
 	FILE* file;
 	errno_t err;
@@ -89,33 +110,41 @@ int write_result(const char* file_path, double similarity) {
 	return 1;
 }
 
-// main函数单独保留在源文件中（也可根据需要移到单独的main.c）
 int main(int argc, char* argv[]) {
+	// 设置本地化，支持宽字符输出
+	setlocale(LC_ALL, "zh-CN.UTF-8");
+	_setmode(_fileno(stdout), _O_U16TEXT);
+
 	// 检查命令行参数
 	if (argc != 4) {
-		fprintf(stderr, "用法: %s 原文文件路径 抄袭文件路径 结果输出路径\n", argv[0]);
+		fwprintf(stderr, L"用法: %s 原文文件路径 抄袭文件路径 结果输出路径\n", argv[0]);
 		return 1;
 	}
 
-	// 读取文件内容
-	char* original_text = read_file(argv[1]);
+	// 读取文件内容（UTF-8编码）
+	wchar_t* original_text = read_utf8_file(argv[1]);
 	if (original_text == NULL) return 1;
 
-	char* plagiarized_text = read_file(argv[2]);
+	wchar_t* plagiarized_text = read_utf8_file(argv[2]);
 	if (plagiarized_text == NULL) {
 		free(original_text);
 		return 1;
 	}
 
 	// 计算相似度
-	int original_len = strlen(original_text);
+	int original_len = wcslen(original_text);
 	int lcs_len = lcs_length(original_text, plagiarized_text);
 	double similarity = (original_len > 0) ? (double)lcs_len / original_len : 0.0;
 
 	// 输出结果
 	if (write_result(argv[3], similarity)) {
-		printf("查重完成，相似度: %.2f%%\n", similarity * 100);
-		printf("结果已保存至: %s\n", argv[3]);
+		fwprintf(stdout, L"查重完成，相似度: %.2f%%\n", similarity * 100);
+		wchar_t w_output_path[MAX_PATH];
+		MultiByteToWideChar(CP_UTF8, 0, argv[3], -1, w_output_path, MAX_PATH);
+
+		// 使用%ls格式符输出宽字符字符串
+		wprintf(L"结果已保存至: %ls\n", w_output_path);
+		wprintf(L"结果已保存至: %s\n", argv[3]);
 	}
 	else {
 		free(original_text);
