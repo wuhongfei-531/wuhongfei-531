@@ -150,7 +150,10 @@ int main(int argc, char* argv[]) {
 
 	// 检查命令行参数
 	if (argc != 4) {
-		fwprintf(stderr, L"用法: %s 原文文件路径 抄袭文件路径 结果输出路径\n", argv[0]);
+		wchar_t wargv0[MAX_PATH];
+		// 将argv[0]从char*转换为wchar_t*
+		MultiByteToWideChar(CP_ACP, 0, argv[0], -1, wargv0, MAX_PATH);
+		fwprintf(stderr, L"用法: %ls 原文文件路径 抄袭文件路径 结果输出路径\n", wargv0);
 		return 1;
 	}
 
